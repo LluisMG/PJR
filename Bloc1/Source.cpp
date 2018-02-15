@@ -65,6 +65,8 @@ int main() {
 		old_text += "Server";
 		//mode = 's';
 		listener.close();
+
+		socket.send(&mode, sizeof(mode));
 	}
 	else if (connectionType == 'c') {
 		status = socket.connect(ip, 5000, sf::seconds(5.f));
@@ -79,6 +81,7 @@ int main() {
 			system("pause");
 			exit(0);
 		}
+		socket.receive(&mode, sizeof(mode), received);
 	}
 
 	//*************************************************************************//
