@@ -38,9 +38,8 @@ void thread_function() {
 		std::cout << "receive" << std::endl;
 		status = socket.receive(buffer, MAX_MENSAJES_LENGTH, received);
 		receiveText(buffer);
-		std::cout << buffer << std::endl;
+		memset(buffer, 0, sizeof(buffer));
 	} while (status == sf::Socket::Done);
-	//} while (true);
 }
 
 int main() {
@@ -62,9 +61,11 @@ int main() {
 
 		sf::TcpListener listener;
 		listener.listen(5000);
+
+		if (mode == 'n') listener.setBlocking(false); //Modo NonBlocking
+
 		listener.accept(socket);
 		old_text += "Server";
-		//mode = 's';
 		listener.close();
 
 		socket.send(&mode, sizeof(mode)); //Envia el modo de conexión al cliente
@@ -72,7 +73,6 @@ int main() {
 	else if (connectionType == 'c') {
 		status = socket.connect(ip, 5000, sf::seconds(5.f));
 		old_text += "Client";
-		//mode = 'r';
 
 		if (status == sf::Socket::Done) {
 			std::cout << "Conectado al Servidor " << ip << "\n";
@@ -92,7 +92,7 @@ int main() {
 	sf::Vector2i screenDimensions(800, 600);
 
 	sf::RenderWindow window;
-	window.create(sf::VideoMode(screenDimensions.x, screenDimensions.y), "Chat");
+	window.create(sf::VideoMode(screenDimensions.x, screenDimensions.y), (connectionType == 's') ? "Chat (Server)" : "Chat (Client)");
 
 	sf::Font font;
 	if (!font.loadFromFile("comicSans.ttf"))
@@ -118,7 +118,6 @@ int main() {
 
 	std::thread t;
 	if (mode == 't') {
-		//std::thread t(&thread_function);
 		t = std::thread(&thread_function); //Thread start
 		std::cout << "main thread" << std::endl;
 	}
@@ -151,8 +150,17 @@ int main() {
 					}
 
 					//SEND
-
-					socket.send(&mensaje.toAnsiString(), mensaje.getSize());
+					mensaje.erase(0, 1);
+					if (mensaje == "exit") {
+						mensaje = "Chat finalizado";
+						window.close();
+					}
+					if (connectionType == 's') {
+						mensaje = "Server: " + mensaje;
+					} else {
+						mensaje = "Client: " + mensaje;
+					}
+					socket.send(mensaje.toAnsiString().c_str(), mensaje.getSize());
 
 					//SEND END
 
@@ -162,7 +170,7 @@ int main() {
 			case sf::Event::TextEntered:
 				if (evento.text.unicode >= 32 && evento.text.unicode <= 126)
 					mensaje += (char)evento.text.unicode;
-				else if (evento.text.unicode == 8 && mensaje.getSize() > 0)
+				else if (evento.text.unicode == 8 && mensaje.getSize() > 1)
 					mensaje.erase(mensaje.getSize() - 1, mensaje.getSize());
 				break;
 			}
