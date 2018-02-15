@@ -36,8 +36,9 @@ void thread_function() {
 	std::cout << "thread function" << std::endl;
 	do {
 		std::cout << "receive" << std::endl;
-		status = socket.receive(buffer, sizeof(buffer), received);
+		status = socket.receive(buffer, MAX_MENSAJES_LENGTH, received);
 		receiveText(buffer);
+		std::cout << buffer << std::endl;
 	} while (status == sf::Socket::Done);
 	//} while (true);
 }
@@ -66,7 +67,7 @@ int main() {
 		//mode = 's';
 		listener.close();
 
-		socket.send(&mode, sizeof(mode));
+		socket.send(&mode, sizeof(mode)); //Envia el modo de conexión al cliente
 	}
 	else if (connectionType == 'c') {
 		status = socket.connect(ip, 5000, sf::seconds(5.f));
@@ -75,13 +76,13 @@ int main() {
 
 		if (status == sf::Socket::Done) {
 			std::cout << "Conectado al Servidor " << ip << "\n";
+			socket.receive(&mode, sizeof(mode), received); //Recibe el modo de conexión del servidor
 		}
 		else {
 			std::cout << "Fallo al Conectar con el Servidor " << ip << "\n";
 			system("pause");
 			exit(0);
 		}
-		socket.receive(&mode, sizeof(mode), received);
 	}
 
 	//*************************************************************************//
@@ -99,7 +100,7 @@ int main() {
 		std::cout << "Can't load the font file" << std::endl;
 	}
 
-	sf::String mensaje = " >";
+	sf::String mensaje = ">";
 
 	sf::Text chattingText(mensaje, font, 14);
 	chattingText.setFillColor(sf::Color(0, 160, 0));
@@ -115,10 +116,11 @@ int main() {
 	separator.setFillColor(sf::Color(200, 200, 200, 255));
 	separator.setPosition(0, 550);
 
+	std::thread t;
 	if (mode == 't') {
-		std::thread t(thread_function);
+		//std::thread t(&thread_function);
+		t = std::thread(&thread_function); //Thread start
 		std::cout << "main thread" << std::endl;
-		t.join();
 	}
 	else if (mode == 'n') {
 
@@ -150,7 +152,7 @@ int main() {
 
 					//SEND
 
-					socket.send(mensaje.getData(), mensaje.getSize());
+					socket.send(&mensaje.toAnsiString(), mensaje.getSize());
 
 					//SEND END
 
@@ -176,14 +178,14 @@ int main() {
 		std::string mensaje_ = mensaje + "_";
 		text.setString(mensaje_);
 
-		//¿RECEIVE?  socket.receive(buffer, sizeof(buffer), received);
-
 		window.draw(text);
 
 
 		window.display();
 		window.clear();
 	}
+
+	t.join(); //Thread end
 
 	socket.disconnect();
 	return 0;
