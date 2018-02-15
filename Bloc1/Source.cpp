@@ -5,23 +5,44 @@
 #include <iostream>
 #include <vector>
 #include <thread>
+#include <mutex>
 
 #define MAX_MENSAJES 25
+#define MAX_MENSAJES_LENGTH 100
 
-void thread_function() {
+sf::IpAddress ip = sf::IpAddress::getLocalAddress();
+sf::TcpSocket socket;
+sf::Socket::Status status;
 
+char connectionType, mode;
+char buffer[2000];
+std::size_t received;
+std::string old_text = "Connected to: ";
+
+std::vector<std::string> aMensajes;
+
+std::mutex mut;
+
+void receiveText(char* text) {
+	std::lock_guard<std::mutex> guard(mut);
+	aMensajes.push_back(text);
+	if (aMensajes.size() > 25)
+	{
+		aMensajes.erase(aMensajes.begin(), aMensajes.begin() + 1);
+	}
 }
 
-int main()
-{
-	sf::IpAddress ip = sf::IpAddress::getLocalAddress();
-	sf::TcpSocket socket;
-	sf::Socket::Status status;
+void thread_function() {
+	std::cout << "thread function" << std::endl;
+	do {
+		std::cout << "receive" << std::endl;
+		status = socket.receive(buffer, sizeof(buffer), received);
+		receiveText(buffer);
+	} while (status == sf::Socket::Done);
+	//} while (true);
+}
 
-	char connectionType, mode;
-	char buffer[2000];
-	std::size_t received;
-	std::string old_text = "Connected to: ";
+int main() {
 
 	std::cout << "Enter (s) for Server, Enter (c) for Client: ";
 	std::cin >> connectionType;
@@ -31,21 +52,12 @@ int main()
 		std::cout << "Enter (t) for Threading, Enter (n) for Non-Blocking, Enter (s) for Socker Selector:";
 		std::cin >> mode;
 
-		if (mode == 't') {
-			std::thread t;
-			t.join();
-		}
-		else if (mode == 'n') {
-
-		}
-		else if (mode == 's') {
-
-		}
-		else {
+		
+		/*else {
 			std::cout << "Tonto, escribe la letra correcta\n";
 			system("pause");
 			exit(0);
-		}
+		}*/
 
 		sf::TcpListener listener;
 		listener.listen(5000);
@@ -72,7 +84,6 @@ int main()
 	//*************************************************************************//
 
 
-	std::vector<std::string> aMensajes;
 
 	sf::Vector2i screenDimensions(800, 600);
 
@@ -100,6 +111,18 @@ int main()
 	sf::RectangleShape separator(sf::Vector2f(800, 5));
 	separator.setFillColor(sf::Color(200, 200, 200, 255));
 	separator.setPosition(0, 550);
+
+	if (mode == 't') {
+		std::thread t(thread_function);
+		std::cout << "main thread" << std::endl;
+		t.join();
+	}
+	else if (mode == 'n') {
+
+	}
+	else if (mode == 's') {
+
+	}
 
 	while (window.isOpen())
 	{
