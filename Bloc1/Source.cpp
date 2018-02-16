@@ -17,6 +17,7 @@ sf::Socket::Status status;
 char connectionType, mode;
 char buffer[2000];
 std::size_t received;
+std::size_t sent;
 std::string old_text = "Connected to: ";
 
 std::vector<std::string> aMensajes;
@@ -49,21 +50,11 @@ int main() {
 
 	if (connectionType == 's') {
 
-		std::cout << "Enter (t) for Threading, Enter (n) for Non-Blocking, Enter (s) for Socker Selector:";
+		std::cout << "Enter (t) for Threading, Enter (n) for Non-Blocking, Enter (s) for Socker Selector: ";
 		std::cin >> mode;
-
-		
-		/*else {
-			std::cout << "Tonto, escribe la letra correcta\n";
-			system("pause");
-			exit(0);
-		}*/
 
 		sf::TcpListener listener;
 		listener.listen(5000);
-
-		if (mode == 'n') listener.setBlocking(false); //Modo NonBlocking
-
 		listener.accept(socket);
 		old_text += "Server";
 		listener.close();
@@ -117,19 +108,44 @@ int main() {
 	separator.setPosition(0, 550);
 
 	std::thread t;
+	sf::SocketSelector selector;
 	if (mode == 't') {
 		t = std::thread(&thread_function); //Thread start
 		std::cout << "main thread" << std::endl;
 	}
 	else if (mode == 'n') {
-
+		socket.setBlocking(false); //Modo NonBlocking
 	}
 	else if (mode == 's') {
-
+		selector.add(socket);
 	}
 
-	while (window.isOpen())
-	{
+	while (window.isOpen()) {
+
+		if (mode == 'n') {
+			status = socket.receive(buffer, MAX_MENSAJES_LENGTH, received);
+			if (status == sf::Socket::Disconnected) {
+				window.close();
+			} else if (status == sf::Socket::Done) {
+				receiveText(buffer);
+				memset(buffer, 0, sizeof(buffer));
+			}
+		} else if (mode == 's') {
+			if (selector.wait(sf::milliseconds(10))) {
+				if (selector.isReady(socket)) {
+					status = socket.receive(buffer, MAX_MENSAJES_LENGTH, received);
+					if (status == sf::Socket::Disconnected) {
+						receiveText("Chat finalizado");
+						//window.close();
+					}
+					else if (status == sf::Socket::Done) {
+						receiveText(buffer);
+						memset(buffer, 0, sizeof(buffer));
+					}
+				}
+			}
+		}
+
 		sf::Event evento;
 		while (window.pollEvent(evento))
 		{
@@ -160,7 +176,15 @@ int main() {
 					} else {
 						mensaje = "Client: " + mensaje;
 					}
-					socket.send(mensaje.toAnsiString().c_str(), mensaje.getSize());
+
+					if (mode == 'n') {
+						do {
+							status = socket.send(mensaje.toAnsiString().c_str(), mensaje.getSize(), sent);
+							mensaje.erase(0, sent);
+						} while (status == sf::Socket::Partial);
+					} else {
+						socket.send(mensaje.toAnsiString().c_str(), mensaje.getSize());
+					}
 
 					//SEND END
 
@@ -193,7 +217,7 @@ int main() {
 		window.clear();
 	}
 
-	t.join(); //Thread end
+	if(mode == 't') t.join(); //Thread end
 
 	socket.disconnect();
 	return 0;
